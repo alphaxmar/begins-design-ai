@@ -65,8 +65,8 @@ r.post('/', async (c) => {
     // Create job
     const jobId = rid('job_')
     try {
-      await run(c.env.DB, "INSERT INTO jobs (id, user_email, original_asset_id, style, status, options) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", [
-        jobId, c.get('userEmail') || 'unknown@user', originalAssetId, style, 'processing', JSON.stringify(options || {})
+      await run(c.env.DB, "INSERT INTO jobs (id, user_email, original_asset_id, original_r2_key, style, status) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", [
+        jobId, c.get('userEmail') || 'unknown@user', originalAssetId, asset.r2_key, style, 'processing'
       ])
       logger.info('Job created successfully', { jobId, originalAssetId, style })
     } catch (dbError) {
