@@ -96,8 +96,9 @@ r.put('/upload/:id', async (c) => {
       }, 400)
     }
     
-    // Check if request has body
-    if (!c.req.body) {
+    // Get request body as stream
+    const body = await c.req.raw.body
+    if (!body) {
       return c.json({ 
         error: 'No file data', 
         message: 'Request body must contain file data' 
@@ -133,7 +134,7 @@ r.put('/upload/:id', async (c) => {
     
     // Upload to R2
     try {
-      await c.env.R2.put(asset.r2_key, c.req.body, {
+      await c.env.R2.put(asset.r2_key, body, {
         httpMetadata: {
           contentType: asset.mime
         }
