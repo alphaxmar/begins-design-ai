@@ -1,35 +1,24 @@
 
-name = "staging-worker"
+name = "begins-design-ai-api"
 main = "src/index.ts"
 compatibility_date = "2025-10-01"
 
 # --- Bindings ---
 [[r2_buckets]]
 binding = "R2"
-bucket_name = "staging-bucket"
+bucket_name = "begins-design-ai-bucket"
+preview_bucket_name = "begins-design-ai-bucket"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "staging-db"
-# Set this to your actual DB id after `wrangler d1 create`
-database_id = "YOUR_D1_ID"
+database_name = "begins-design-ai"
+database_id = "8e9de02e-8078-4f18-bc82-ce8f2c99b407"
+preview_database_id = "8e9de02e-8078-4f18-bc82-ce8f2c99b407"
 
 [vars]
-JWT_SECRET = "your-jwt-secret-here" # not used for Access; can be used for session signing
-ASSET_BASE = "https://pub-your-domain.com"  # optional CDN hostname for assets
-ACCESS_AUD = "your-access-app-aud-uuid-here"
-ACCESS_JWKS_URL = "https://your-team.cloudflareaccess.com/cdn-cgi/access/certs"
-STRIPE_SECRET = "sk_test_your_stripe_secret_key_here"
-STRIPE_WEBHOOK_SECRET = "whsec_your_stripe_webhook_secret_here"
+ASSET_BASE = "https://begins-design-ai-bucket.alphaxmar.workers.dev"
+ACCESS_AUD = "begins-design-ai-access-aud"
+ACCESS_JWKS_URL = "https://alphaxmar.cloudflareaccess.com/cdn-cgi/access/certs"
 
 [ai]
 binding = "AI"
-
-[[queues.producers]]
-binding = "JOB_OUT"
-queue = "staging-jobs"
-
-[[queues.consumers]]
-queue = "staging-jobs"
-max_batch_size = 1
-max_batch_timeout = 1

@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Wrangler
+.wrangler/
+wrangler.toml.backup
+
+# Output directories
+dist/
+build/
+
+# Generated images
+img/
+images/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# Test files
+test_*.json
+*_test_report_*.json
+test_image.*
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+.env/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Coverage reports
+coverage/
+.nyc_output/
+.coverage
+
+# Lock files (keep package-lock.json for consistency)
+# yarn.lock
+
+# Local development
+.local/
+.secrets/

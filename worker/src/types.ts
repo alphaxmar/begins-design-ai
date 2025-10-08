@@ -10,4 +10,5 @@ export interface Env {
   ACCESS_JWKS_URL: string
   STRIPE_SECRET: string
   STRIPE_WEBHOOK_SECRET: string
+  CLOUDFLARE_API_TOKEN: string
 }

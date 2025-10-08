@@ -1,0 +1,7 @@
+name = "flux-image-generator"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+account_id = "f371479270f8b0aa9b4a15eca3af4b49"
+
+[ai]
+binding = "AI"

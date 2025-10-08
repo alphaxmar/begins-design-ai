@@ -20,55 +20,100 @@ r.post('/', async (c) => {
       return c.json({ error: 'Invalid JSON in request body' }, 400)
     }
 
-    const { originalAssetId, style, options } = body as { originalAssetId: string; style: string; options?: any }
-    logger.info('Job creation request validated', { originalAssetId, style })
+    const { originalAssetId, style, options, mode } = body as { 
+      originalAssetId?: string; 
+      style: string; 
+      options?: {
+        prompt?: string
+        negative_prompt?: string
+        strength?: number
+        model?: string
+        mode?: 'text-to-image' | 'image-to-image'
+        // Advanced parameters (similar to AUTOMATIC1111)
+        cfg_scale?: number
+        steps?: number
+        seed?: number
+        sampler?: string
+        // FLUX specific parameters
+        aspect_ratio?: string
+      };
+      mode?: 'text-to-image' | 'image-to-image'
+    }
+    logger.info('Job creation request validated', { originalAssetId, style, mode, options })
     
-    // Validate required fields
-    if (!originalAssetId) {
-      logger.warn('Missing originalAssetId in request')
-      return c.json({ error: 'originalAssetId is required' }, 400)
-    }
-    if (!style) {
-      logger.warn('Missing style in request')
-      return c.json({ error: 'style is required' }, 400)
-    }
+    // Handle different modes
+    let asset = null
+    let r2Key = null
+    let finalAssetId = originalAssetId || 'text-to-image-placeholder'
+    
+    if (mode === 'text-to-image') {
+      // For text-to-image, we don't need an actual asset
+      // The style parameter contains the custom prompt
+      logger.info('Text-to-image mode detected', { customPrompt: style })
+      
+      // Validate custom prompt
+      if (!style || style.trim() === '') {
+        logger.warn('Missing custom prompt for text-to-image mode')
+        return c.json({ error: 'Custom prompt is required for text-to-image mode' }, 400)
+      }
+      
+      // Set placeholders for text-to-image
+      finalAssetId = 'text-to-image-placeholder'
+      r2Key = 'text-to-image-placeholder' // Use placeholder string for NOT NULL constraint
+    } else {
+      // For image-to-image mode, validate required fields
+      if (!originalAssetId) {
+        logger.warn('Missing originalAssetId in request')
+        return c.json({ error: 'originalAssetId is required for image-to-image mode' }, 400)
+      }
+      if (!style) {
+        logger.warn('Missing style in request')
+        return c.json({ error: 'style is required for image-to-image mode' }, 400)
+      }
+      
+      // Get asset information
+      try {
+        asset = await c.env.DB.prepare("SELECT * FROM assets WHERE id = ?").bind(originalAssetId).first()
+        logger.info('Asset lookup completed', { assetFound: !!asset })
+      } catch (dbError) {
+        logger.error('Database error during asset lookup', dbError, { originalAssetId })
+        return c.json({ 
+          error: 'Database error', 
+          message: 'Failed to retrieve asset information' 
+        }, 500)
+      }
 
-    // Get asset information
-    let asset
-    try {
-      asset = await c.env.DB.prepare("SELECT * FROM assets WHERE id = ?").bind(originalAssetId).first()
-      logger.info('Asset lookup completed', { assetFound: !!asset })
-    } catch (dbError) {
-      logger.error('Database error during asset lookup', dbError, { originalAssetId })
-      return c.json({ 
-        error: 'Database error', 
-        message: 'Failed to retrieve asset information' 
-      }, 500)
-    }
+      if (!asset) {
+        logger.warn('Asset not found', { originalAssetId })
+        return c.json({ 
+          error: 'Asset not found', 
+          message: `No asset found with ID: ${originalAssetId}` 
+        }, 404)
+      }
 
-    if (!asset) {
-      logger.warn('Asset not found', { originalAssetId })
-      return c.json({ 
-        error: 'Asset not found', 
-        message: `No asset found with ID: ${originalAssetId}` 
-      }, 404)
-    }
-
-    if (!asset.r2_key) {
-      logger.warn('Asset incomplete - missing R2 key', { originalAssetId })
-      return c.json({ 
-        error: 'Asset incomplete', 
-        message: 'Asset has not been uploaded to storage yet' 
-      }, 400)
+      if (!asset.r2_key) {
+        logger.warn('Asset incomplete - missing R2 key', { originalAssetId })
+        return c.json({ 
+          error: 'Asset incomplete', 
+          message: 'Asset has not been uploaded to storage yet' 
+        }, 400)
+      }
+      
+      r2Key = asset.r2_key
     }
 
     // Create job
     const jobId = rid('job_')
     try {
       await run(c.env.DB, "INSERT INTO jobs (id, user_email, original_asset_id, original_r2_key, style, status) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", [
-        jobId, c.get('userEmail') || 'unknown@user', originalAssetId, asset.r2_key, style, 'processing'
+        jobId, 
+        c.get('userEmail') || 'unknown@user', 
+        finalAssetId, 
+        r2Key, // Use null for text-to-image, actual key for image-to-image
+        style, 
+        'processing'
       ])
-      logger.info('Job created successfully', { jobId, originalAssetId, style })
+      logger.info('Job created successfully', { jobId, finalAssetId, style, mode })
     } catch (dbError) {
       logger.error('Database error during job creation', dbError, { jobId, originalAssetId })
       return c.json({ 
@@ -78,23 +123,25 @@ r.post('/', async (c) => {
     }
 
     try {
-      logger.info('Starting AI pipeline processing', { jobId })
+      logger.info('Starting AI pipeline processing', { jobId, mode })
       
-      // Run AI pipeline
-      const outputAssetId = await runPipeline(c.env, {
+      // Run AI pipeline with mode information
+      const outputR2Key = await runPipeline(c.env, {
         id: jobId,
-        originalAssetId,
+        originalAssetId: finalAssetId,
         style,
-        options: options || {}
+        userEmail: c.get('userEmail') || 'unknown@user',
+        options: { ...options, mode },
+        r2Key: r2Key // Pass the r2Key (null for text-to-image)
       })
 
-      logger.info('AI pipeline completed successfully', { jobId, outputAssetId })
+      logger.info('AI pipeline completed successfully', { jobId, outputR2Key })
 
       // Update job status to succeeded
-      await run(c.env.DB, "UPDATE jobs SET status=?1, output_asset_id=?2 WHERE id=?3", ['succeeded', outputAssetId, jobId])
+      await run(c.env.DB, "UPDATE jobs SET status=?1, output_r2_key=?2 WHERE id=?3", ['succeeded', outputR2Key, jobId])
 
-      logger.info('Job completed successfully', { jobId, outputAssetId })
-      return c.json({ jobId, status: 'succeeded', outputAssetId })
+      logger.info('Job completed successfully', { jobId, outputR2Key })
+      return c.json({ jobId, status: 'succeeded', outputR2Key })
     } catch (error) {
       logger.error('Pipeline processing failed', error, { jobId, originalAssetId, style })
       
@@ -143,7 +190,7 @@ r.post('/', async (c) => {
 
 r.get('/:id', async (c) => {
   const { id } = c.req.param()
-  const job = await one<any>(c.env.DB, "SELECT * FROM jobs WHERE id=?1", [id])
+  const job = await c.env.DB.prepare("SELECT * FROM jobs WHERE id=?1").bind(id).first()
   if (!job) return c.json({ error: 'not found' }, 404)
   return c.json({ job })
 })

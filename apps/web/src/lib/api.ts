@@ -110,7 +110,7 @@ export async function commitUpload(data: any) {
   }
 }
 
-export async function createJob(input: { originalAssetId: string; style: string; options?: any }) {
+export async function createJob(input: { originalAssetId?: string; style: string; options?: any; mode?: 'text-to-image' | 'image-to-image' }) {
   try {
     const res = await fetch(`${API}/api/jobs`, {
       method: 'POST',
